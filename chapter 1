@@ -1,2 +1,242 @@
 1.cc1是gcc调用编译的实际工具,/usr/lib/gcc/i686-linux-gnu/4.8/cc1这是我的cc1位置,我的gcc在/usr/bin/gcc
 gcc版本号为4.8,这部分相关的有flex 和 lex阅读，我不清楚
+
+2.as是gcc的汇编编译器，把*.s翻译成机器语言指令，把这些指令打包成可重定位目标程序(relocatable object program)的格式,
+可重定位目标程序的意思
+
+3.其中as和ld都在gcc的binutils里面，这部分代码目前没有阅读
+
+4.优化程序方面的一些东西
+
+5.switch语句是不是比if-then-else高效(看汇编代码）
+
+6.函数开销有多大（如何测量)
+
+7.while循环和for循环哪个更快(看汇编代码）
+
+8.C语言程序里面指针引用比数据索引是否更快(看汇编代码)
+没有区别
+ptr.c
+int sum(int add[], int n)
+{
+        int sum = 0;
+        int i = 0;
+        for (i = 0; i < n;++i)
+                sum += add[i];
+        return sum;
+}
+
+int sum1(int add[], int n)
+{
+        int sum = 0;
+        int i = 0;
+        for (i = 0; i < n;++i)
+                sum += *(add+i);
+        return sum;
+}
+
+gcc -c ptr.c -o ptr.o
+使用objdump -d ptr.o
+
+
+ptr.o：     文件格式 elf32-i386
+
+
+Disassembly of section .text:
+
+00000000 <sum>:
+   0:	55                   	push   %ebp
+   1:	89 e5                	mov    %esp,%ebp
+   3:	83 ec 10             	sub    $0x10,%esp
+   6:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+   d:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  14:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  1b:	eb 18                	jmp    35 <sum+0x35>
+  1d:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  20:	8d 14 85 00 00 00 00 	lea    0x0(,%eax,4),%edx
+  27:	8b 45 08             	mov    0x8(%ebp),%eax
+  2a:	01 d0                	add    %edx,%eax
+  2c:	8b 00                	mov    (%eax),%eax
+  2e:	01 45 f8             	add    %eax,-0x8(%ebp)
+  31:	83 45 fc 01          	addl   $0x1,-0x4(%ebp)
+  35:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  38:	3b 45 0c             	cmp    0xc(%ebp),%eax
+  3b:	7c e0                	jl     1d <sum+0x1d>
+  3d:	8b 45 f8             	mov    -0x8(%ebp),%eax
+  40:	c9                   	leave  
+  41:	c3                   	ret    
+
+00000042 <sum1>:
+  42:	55                   	push   %ebp
+  43:	89 e5                	mov    %esp,%ebp
+  45:	83 ec 10             	sub    $0x10,%esp
+  48:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+  4f:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  56:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  5d:	eb 18                	jmp    77 <sum1+0x35>
+  5f:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  62:	8d 14 85 00 00 00 00 	lea    0x0(,%eax,4),%edx
+  69:	8b 45 08             	mov    0x8(%ebp),%eax
+  6c:	01 d0                	add    %edx,%eax
+  6e:	8b 00                	mov    (%eax),%eax
+  70:	01 45 f8             	add    %eax,-0x8(%ebp)
+  73:	83 45 fc 01          	addl   $0x1,-0x4(%ebp)
+  77:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  7a:	3b 45 0c             	cmp    0xc(%ebp),%eax
+  7d:	7c e0                	jl     5f <sum1+0x1d>
+  7f:	8b 45 f8             	mov    -0x8(%ebp),%eax
+  82:	c9                   	leave  
+  83:	c3                   	ret 
+  
+  9.为什么将循环求和放到一个本地变量中，与将其放到一个通过引用传递过来的参赛相比，
+  运行速度要快很多
+  sum.c
+  
+  #include <stdio.h>
+int add(int arr[], int n)
+{
+        int sum = 0;
+        int i = 0;
+        for (i = 0; i < n;++i)
+                sum += arr[i];
+        return sum;
+}
+
+int main()
+{
+        int arr[] = {1,2,4,8,9};
+
+        int sum = add(arr,sizeof(arr)/sizeof(arr[0]));
+        return 0;
+}
+
+ysg@ysg-VirtualBox:~$ objdump -d sum.o
+
+sum.o：     文件格式 elf32-i386
+
+
+Disassembly of section .text:
+
+00000000 <add>:
+   0:	55                   	push   %ebp
+   1:	89 e5                	mov    %esp,%ebp
+   3:	83 ec 10             	sub    $0x10,%esp
+   6:	c7 45 f8 00 00 00 00 	movl   $0x0,-0x8(%ebp)
+   d:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  14:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  1b:	eb 18                	jmp    35 <add+0x35>
+  1d:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  20:	8d 14 85 00 00 00 00 	lea    0x0(,%eax,4),%edx
+  27:	8b 45 08             	mov    0x8(%ebp),%eax
+  2a:	01 d0                	add    %edx,%eax
+  2c:	8b 00                	mov    (%eax),%eax
+  2e:	01 45 f8             	add    %eax,-0x8(%ebp)
+  31:	83 45 fc 01          	addl   $0x1,-0x4(%ebp)
+  35:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  38:	3b 45 0c             	cmp    0xc(%ebp),%eax
+  3b:	7c e0                	jl     1d <add+0x1d>
+  3d:	8b 45 f8             	mov    -0x8(%ebp),%eax
+  40:	c9                   	leave  
+  41:	c3                   	ret    
+
+00000042 <main>:
+  42:	55                   	push   %ebp
+  43:	89 e5                	mov    %esp,%ebp
+  45:	83 ec 28             	sub    $0x28,%esp
+  48:	c7 45 ec 01 00 00 00 	movl   $0x1,-0x14(%ebp)
+  4f:	c7 45 f0 02 00 00 00 	movl   $0x2,-0x10(%ebp)
+  56:	c7 45 f4 04 00 00 00 	movl   $0x4,-0xc(%ebp)
+  5d:	c7 45 f8 08 00 00 00 	movl   $0x8,-0x8(%ebp)
+  64:	c7 45 fc 09 00 00 00 	movl   $0x9,-0x4(%ebp)
+  6b:	c7 44 24 04 05 00 00 	movl   $0x5,0x4(%esp)
+  72:	00 
+  73:	8d 45 ec             	lea    -0x14(%ebp),%eax
+  76:	89 04 24             	mov    %eax,(%esp)
+  79:	e8 fc ff ff ff       	call   7a <main+0x38>
+  7e:	89 45 e8             	mov    %eax,-0x18(%ebp)
+  81:	b8 00 00 00 00       	mov    $0x0,%eax
+  86:	c9                   	leave  
+  87:	c3                   	ret 
+  
+  sum1.c
+#include <stdio.h>
+void add(int arr[], int n, int* sum)
+{
+        int i = 0;
+        for (i = 0; i < n;++i)
+                *sum += arr[i];
+}
+
+int main()
+{
+        int arr[] = {1,2,4,8,9};
+        int sum = 0;
+
+        add(arr,sizeof(arr)/sizeof(arr[0]),&sum);
+        return 0;
+}
+
+
+ysg@ysg-VirtualBox:~$ objdump -d sum1.o 
+
+sum1.o：     文件格式 elf32-i386
+
+
+Disassembly of section .text:
+
+00000000 <add>:
+   0:	55                   	push   %ebp
+   1:	89 e5                	mov    %esp,%ebp
+   3:	83 ec 10             	sub    $0x10,%esp
+   6:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+   d:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%ebp)
+  14:	eb 21                	jmp    37 <add+0x37>
+  16:	8b 45 10             	mov    0x10(%ebp),%eax
+  19:	8b 10                	mov    (%eax),%edx
+  1b:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  1e:	8d 0c 85 00 00 00 00 	lea    0x0(,%eax,4),%ecx
+  25:	8b 45 08             	mov    0x8(%ebp),%eax
+  28:	01 c8                	add    %ecx,%eax
+  2a:	8b 00                	mov    (%eax),%eax
+  2c:	01 c2                	add    %eax,%edx
+  2e:	8b 45 10             	mov    0x10(%ebp),%eax
+  31:	89 10                	mov    %edx,(%eax)
+  33:	83 45 fc 01          	addl   $0x1,-0x4(%ebp)
+  37:	8b 45 fc             	mov    -0x4(%ebp),%eax
+  3a:	3b 45 0c             	cmp    0xc(%ebp),%eax
+  3d:	7c d7                	jl     16 <add+0x16>
+  3f:	c9                   	leave  
+  40:	c3                   	ret    
+
+00000041 <main>:
+  41:	55                   	push   %ebp
+  42:	89 e5                	mov    %esp,%ebp
+  44:	83 ec 2c             	sub    $0x2c,%esp
+  47:	c7 45 ec 01 00 00 00 	movl   $0x1,-0x14(%ebp)
+  4e:	c7 45 f0 02 00 00 00 	movl   $0x2,-0x10(%ebp)
+  55:	c7 45 f4 04 00 00 00 	movl   $0x4,-0xc(%ebp)
+  5c:	c7 45 f8 08 00 00 00 	movl   $0x8,-0x8(%ebp)
+  63:	c7 45 fc 09 00 00 00 	movl   $0x9,-0x4(%ebp)
+  6a:	c7 45 e8 00 00 00 00 	movl   $0x0,-0x18(%ebp)
+  71:	8d 45 e8             	lea    -0x18(%ebp),%eax
+  74:	89 44 24 08          	mov    %eax,0x8(%esp)
+  78:	c7 44 24 04 05 00 00 	movl   $0x5,0x4(%esp)
+  7f:	00 
+  80:	8d 45 ec             	lea    -0x14(%ebp),%eax
+  83:	89 04 24             	mov    %eax,(%esp)
+  86:	e8 fc ff ff ff       	call   87 <main+0x46>
+  8b:	b8 00 00 00 00       	mov    $0x0,%eax
+  90:	c9                   	leave
+  
+  10.存储系统的层次结构特效
+  
+  链接器：
+  无法解析一个引用是什么意思
+  可能是缺乏动态库，或是定义了函数找不到函数实现入口
+  静态变量和全局变量的区别
+  在不同的C文件里面定义了两个名字相同的全局变量会发生什么
+  命令上排列库的顺序有什么影响
+  为什么有些链接库错误遇到运行时才出现
+  
+  
+
