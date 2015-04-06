@@ -1,0 +1,2 @@
+1.cc1是gcc调用编译的实际工具,/usr/lib/gcc/i686-linux-gnu/4.8/cc1这是我的cc1位置,我的gcc在/usr/bin/gcc
+gcc版本号为4.8,这部分相关的有flex 和 lex阅读，我不清楚
